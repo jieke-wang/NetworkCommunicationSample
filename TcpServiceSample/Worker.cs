@@ -43,13 +43,7 @@ namespace TcpServiceSample
             {
                 try
                 {
-                    using TcpClient tcpClient = await _tcpListener.AcceptTcpClientAsync();
-                    _logger.LogInformation($"{tcpClient.Client.RemoteEndPoint as IPEndPoint} 接入");
-
-                    tcpClient.ReceiveTimeout = 10;
-                    tcpClient.SendTimeout = 10;
-                    tcpClient.LingerState = new LingerOption(true, 1);
-                    await ReciveDataAsync(tcpClient, stoppingToken);
+                    await AcceptTcpClientAsync(stoppingToken);
                 }
                 catch (Exception ex)
                 {
@@ -58,58 +52,68 @@ namespace TcpServiceSample
             }
         }
 
+        private async Task AcceptTcpClientAsync(CancellationToken stoppingToken)
+        {
+            using TcpClient tcpClient = await _tcpListener.AcceptTcpClientAsync();
+            _logger.LogInformation($"{tcpClient.Client.RemoteEndPoint as IPEndPoint} 接入");
+
+            tcpClient.ReceiveTimeout = 10;
+            tcpClient.SendTimeout = 10;
+            tcpClient.LingerState = new LingerOption(true, 1);
+            await ReciveDataAsync(tcpClient, stoppingToken);
+        }
+
         private async Task ReciveDataAsync(TcpClient tcpClient, CancellationToken stoppingToken)
         {
             _logger.LogInformation($"客户端数量: {++ClientCounter}");
 
-            using NetworkStream stream = tcpClient.GetStream();
-            string message = string.Empty;
-            TimeSpan timeout = new TimeSpan(0, 0, 5, 0, 0);
-            DateTime latestCommunicationTime = DateTime.Now;
-
             try
             {
                 await Task.Factory.StartNew(async () =>
+                {
+                    TimeSpan timeout = new TimeSpan(0, 0, 5, 0, 0);
+                    DateTime latestCommunicationTime = DateTime.Now;
+
+                    while (!stoppingToken.IsCancellationRequested && tcpClient.Connected)
                     {
-                        while (!stoppingToken.IsCancellationRequested && tcpClient.Connected)
+                        if (CheckConnection(tcpClient) == false) return; // 检测tcp连接
+                        if (CheckTimeout(tcpClient, latestCommunicationTime, timeout) == false) return; // 检测超时
+
+                        var promise = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+                        using CancellationTokenSource cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                        cancellationTokenSource.CancelAfter(timeout);
+                        CancellationToken cancellationToken = cancellationTokenSource.Token;
+                        byte[] data = null;
+
+                        NetworkStream stream = tcpClient.GetStream();
+                        if (stream.CanRead == false)
                         {
-                            if (CheckConnection(tcpClient) == false) return; // 检测tcp连接
-                            if (CheckTimeout(tcpClient, latestCommunicationTime, timeout) == false) return; // 检测超时
+                            await Task.Delay(100);
+                            continue;
+                        }
 
-                            var promise = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
-                            using CancellationTokenSource cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-                            cancellationTokenSource.CancelAfter(timeout);
-                            CancellationToken cancellationToken = cancellationTokenSource.Token;
-                            byte[] data = null;
+                        ReadState readState = new ReadState(promise, tcpClient);
+                        stream.BeginRead(readState.Buffer, default, readState.BufferSize, AsyncReadCallBack, readState);
 
-                            if (stream.CanRead == false)
+                        await using (cancellationToken.Register(() => promise.TrySetCanceled()))
+                        {
+                            data = await promise.Task.ConfigureAwait(false);
+                        }
+
+                        if (data != null && data.Length > 0)
+                        {
+                            latestCommunicationTime = DateTime.Now;
+                            string requestMsg = Encoding.UTF8.GetString(data);
+                            _logger.LogInformation($"接收:\n\t{requestMsg}\n");
+
+                            if (stream.CanWrite)
                             {
-                                await Task.Delay(100);
-                                continue;
-                            }
-
-                            ReadState readState = new ReadState(promise, tcpClient);
-                            stream.BeginRead(readState.Buffer, default, readState.BufferSize, AsyncReadCallBack, readState);
-
-                            await using (cancellationToken.Register(() => promise.TrySetCanceled()))
-                            {
-                                data = await promise.Task.ConfigureAwait(false);
-                            }
-
-                            if (data != null && data.Length > 0)
-                            {
-                                latestCommunicationTime = DateTime.Now;
-                                string requestMsg = Encoding.UTF8.GetString(data);
-                                _logger.LogInformation($"接收:\n\t{requestMsg}\n");
-
-                                if (stream.CanWrite)
-                                {
-                                    byte[] responseBuffer = Encoding.UTF8.GetBytes($"{requestMsg}; 响应时间:{DateTime.Now}");
-                                    await stream.WriteAsync(responseBuffer, stoppingToken);
-                                }
+                                byte[] responseBuffer = Encoding.UTF8.GetBytes($"{requestMsg}; 响应时间:{DateTime.Now}");
+                                await stream.WriteAsync(responseBuffer, stoppingToken);
                             }
                         }
-                    }).Unwrap();
+                    }
+                }).Unwrap();
             }
             catch (Exception ex)
             {
