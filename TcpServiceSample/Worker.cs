@@ -71,48 +71,44 @@ namespace TcpServiceSample
             {
                 await Task.Factory.StartNew(async () =>
                 {
-                    TimeSpan timeout = new TimeSpan(0, 0, 5, 0, 0);
-                    DateTime latestCommunicationTime = DateTime.Now;
+                    if (CheckConnection(tcpClient) == false) return; // 检测tcp连接
 
-                    while (!stoppingToken.IsCancellationRequested && tcpClient.Connected)
+                    #region 首次异步通信
+                    var promise = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+                    ReadState readState = new ReadState(promise, tcpClient) { LatestCommunicationTime = DateTime.Now, CancellationToken = stoppingToken };
+
+                    using CancellationTokenSource cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(readState.CancellationToken);
+                    cancellationTokenSource.CancelAfter(readState.Timeout);
+                    CancellationToken cancellationToken = cancellationTokenSource.Token;
+                    byte[] data = null;
+
+                    NetworkStream stream = tcpClient.GetStream();
+                    if (stream.CanRead == false)
                     {
-                        if (CheckConnection(tcpClient) == false) return; // 检测tcp连接
-                        if (CheckTimeout(tcpClient, latestCommunicationTime, timeout) == false) return; // 检测超时
+                        await Task.Delay(100);
+                        ShutdownClient(readState.TcpClient);
+                        return;
+                    }
 
-                        var promise = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
-                        using CancellationTokenSource cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-                        cancellationTokenSource.CancelAfter(timeout);
-                        CancellationToken cancellationToken = cancellationTokenSource.Token;
-                        byte[] data = null;
+                    stream.BeginRead(readState.Buffer, default, readState.BufferSize, AsyncReadCallBackAsync, readState);
 
-                        NetworkStream stream = tcpClient.GetStream();
-                        if (stream.CanRead == false)
+                    await using (cancellationToken.Register(() => promise.TrySetCanceled()))
+                    {
+                        data = await promise.Task.ConfigureAwait(false);
+                    }
+
+                    if (data != null && data.Length > 0)
+                    {
+                        string requestMsg = Encoding.UTF8.GetString(data);
+                        _logger.LogInformation($"接收:\n\t{requestMsg}\n");
+
+                        if (stream.CanWrite)
                         {
-                            await Task.Delay(100);
-                            continue;
-                        }
-
-                        ReadState readState = new ReadState(promise, tcpClient);
-                        stream.BeginRead(readState.Buffer, default, readState.BufferSize, AsyncReadCallBack, readState);
-
-                        await using (cancellationToken.Register(() => promise.TrySetCanceled()))
-                        {
-                            data = await promise.Task.ConfigureAwait(false);
-                        }
-
-                        if (data != null && data.Length > 0)
-                        {
-                            latestCommunicationTime = DateTime.Now;
-                            string requestMsg = Encoding.UTF8.GetString(data);
-                            _logger.LogInformation($"接收:\n\t{requestMsg}\n");
-
-                            if (stream.CanWrite)
-                            {
-                                byte[] responseBuffer = Encoding.UTF8.GetBytes($"{requestMsg}; 响应时间:{DateTime.Now}");
-                                await stream.WriteAsync(responseBuffer, stoppingToken);
-                            }
+                            byte[] responseBuffer = Encoding.UTF8.GetBytes($"{requestMsg}; 响应时间:{DateTime.Now}");
+                            await stream.WriteAsync(responseBuffer, stoppingToken);
                         }
                     }
+                    #endregion
                 }).Unwrap();
             }
             catch (Exception ex)
@@ -125,11 +121,24 @@ namespace TcpServiceSample
             }
         }
 
-        void AsyncReadCallBack(IAsyncResult ar)
+        async void AsyncReadCallBackAsync(IAsyncResult ar)
         {
             ReadState state = ar.AsyncState as ReadState;
-            if (state.TcpClient == null || state.TcpClient.Connected == false || state.TaskCompletionSource == null) return;
+            #region 检查
+            if (state.TcpClient == null || state.TcpClient.Connected == false || state.TaskCompletionSource == null || state.CancellationToken.IsCancellationRequested) return;
 
+            if (CheckConnection(state.TcpClient) == false) // 检测tcp连接
+            {
+                return;
+            }
+            if (CheckTimeout(state.TcpClient, state.LatestCommunicationTime, state.Timeout) == false) // 检测超时
+            {
+                ShutdownClient(state.TcpClient);
+                return;
+            }
+            #endregion
+
+            #region 读取数据
             NetworkStream ns = state.TcpClient.GetStream();
             int numOfBytesRead = ns.EndRead(ar);
             if (numOfBytesRead > 0)
@@ -142,6 +151,44 @@ namespace TcpServiceSample
             {
                 state.TaskCompletionSource.TrySetCanceled();
             }
+            #endregion
+
+            #region 开启新的异步通信
+            var promise = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+            ReadState readState = new ReadState(promise, state.TcpClient) { LatestCommunicationTime = DateTime.Now, CancellationToken = state.CancellationToken };
+
+            using CancellationTokenSource cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(state.CancellationToken);
+            cancellationTokenSource.CancelAfter(readState.Timeout);
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+            byte[] data = null;
+
+            NetworkStream stream = state.TcpClient.GetStream();
+            if (stream.CanRead == false)
+            {
+                await Task.Delay(100);
+                ShutdownClient(readState.TcpClient);
+                return;
+            }
+
+            stream.BeginRead(readState.Buffer, default, readState.BufferSize, AsyncReadCallBackAsync, readState);
+
+            await using (cancellationToken.Register(() => promise.TrySetCanceled()))
+            {
+                data = await promise.Task.ConfigureAwait(false);
+            }
+
+            if (data != null && data.Length > 0)
+            {
+                string requestMsg = Encoding.UTF8.GetString(data);
+                _logger.LogInformation($"接收:\n\t{requestMsg}\n");
+
+                if (stream.CanWrite)
+                {
+                    byte[] responseBuffer = Encoding.UTF8.GetBytes($"{requestMsg}; 响应时间:{DateTime.Now}");
+                    await stream.WriteAsync(responseBuffer, readState.CancellationToken);
+                }
+            }
+            #endregion
         }
 
         bool CheckConnection(TcpClient tcpClient)
@@ -174,6 +221,12 @@ namespace TcpServiceSample
             }
 
             return true;
+        }
+
+        void ShutdownClient(TcpClient tcpClient)
+        {
+            tcpClient?.Close();
+            tcpClient?.Dispose();
         }
 
         // https://stackoverflow.com/questions/1387459/how-to-check-if-tcpclient-connection-is-closed
@@ -215,6 +268,12 @@ namespace TcpServiceSample
             public int BufferSize { get; }
             public TaskCompletionSource<byte[]> TaskCompletionSource { get; }
             public TcpClient TcpClient { get; }
+
+            public DateTime LatestCommunicationTime { get; set; }
+
+            public TimeSpan Timeout { get; set; } = new TimeSpan(0, 0, 5, 0, 0);
+
+            public CancellationToken CancellationToken { get; set; }
         }
     }
 }
