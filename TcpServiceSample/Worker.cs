@@ -74,38 +74,37 @@ namespace TcpServiceSample
                     if (CheckConnection(tcpClient) == false) return; // 检测tcp连接
 
                     #region 首次异步通信
-                    var promise = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
-                    ReadState readState = new ReadState(promise, tcpClient) { LatestCommunicationTime = DateTime.Now, CancellationToken = stoppingToken };
+
+                    ReadState state = new ReadState(new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously), tcpClient) { LatestCommunicationTime = DateTime.Now, CancellationToken = stoppingToken };
                     try
                     {
-                        readState.CancellationTokenSource = new CancellationTokenSource(readState.Timeout);
-                        CancellationTokenSource cancellationTokenSource = readState.CancellationTokenSource;
-                        CancellationToken cancellationToken = cancellationTokenSource.Token;
-                        byte[] data = null;
+                        state.CancellationTokenSource = new CancellationTokenSource(state.Timeout);
 
                         NetworkStream stream = tcpClient.GetStream();
                         if (stream.CanRead == false)
                         {
                             await Task.Delay(100);
-                            ShutdownClient(readState.TcpClient);
+                            ShutdownClient(state.TcpClient);
                             return;
                         }
 
-                        readState.CancellationTokenRegistrations.Add(cancellationToken.Register(() => promise.TrySetCanceled()));
-                        readState.CancellationTokenRegistrations.Add(readState.CancellationToken.Register(() => promise.TrySetCanceled()));
+                        state.CancellationTokenRegistrations.Add(state.CancellationTokenSource.Token.Register(() => state.TaskCompletionSource.TrySetCanceled()));
+                        state.CancellationTokenRegistrations.Add(state.CancellationToken.Register(() => state.TaskCompletionSource.TrySetCanceled()));
 
-                        stream.BeginRead(readState.Buffer, default, readState.BufferSize, AsyncReadCallBackAsync, readState);
+                        stream.BeginRead(state.Buffer, default, state.BufferSize, AsyncReadCallBackAsync, state);
 
-                        data = await promise.Task.ConfigureAwait(false);
-                        if (data != null && data.Length > 0)
                         {
-                            string requestMsg = Encoding.UTF8.GetString(data);
-                            _logger.LogInformation($"接收:\n\t{requestMsg}\n");
-
-                            if (stream.CanWrite)
+                            byte[] data = await state.TaskCompletionSource.Task.ConfigureAwait(false);
+                            if (data != null && data.Length > 0)
                             {
-                                byte[] responseBuffer = Encoding.UTF8.GetBytes($"{requestMsg}; 响应时间:{DateTime.Now}");
-                                await stream.WriteAsync(responseBuffer, stoppingToken);
+                                string requestMsg = Encoding.UTF8.GetString(data);
+                                _logger.LogInformation($"接收:\n\t{requestMsg}\n");
+
+                                if (stream.CanWrite)
+                                {
+                                    byte[] responseBuffer = Encoding.UTF8.GetBytes($"{requestMsg}; 响应时间:{DateTime.Now}");
+                                    await stream.WriteAsync(responseBuffer, stoppingToken);
+                                }
                             }
                         }
                     }
@@ -115,7 +114,7 @@ namespace TcpServiceSample
                     }
                     finally
                     {
-                        readState.Dispose();
+                        state.Dispose();
                     }
                     #endregion
                 }).Unwrap();
@@ -163,20 +162,7 @@ namespace TcpServiceSample
                 #endregion
 
                 #region 读取数据
-                NetworkStream ns = state.TcpClient.GetStream();
-                int numOfBytesRead = ns.EndRead(ar);
-                if (numOfBytesRead > 0)
-                {
-                    byte[] buffer = new byte[numOfBytesRead];
-                    Array.Copy(state.Buffer, 0, buffer, 0, numOfBytesRead);
-                    state.TaskCompletionSource.TrySetResult(buffer);
-                }
-                else
-                {
-                    state.TaskCompletionSource.TrySetCanceled();
-                }
-
-                state.Dispose();
+                LoadData(state, ar);
                 #endregion
 
                 #region 开启新的异步通信
@@ -188,38 +174,33 @@ namespace TcpServiceSample
                     return;
                 }
 
-                var promise = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
-                ReadState readState = state;
-                readState.LatestCommunicationTime = DateTime.Now;
-                readState.TaskCompletionSource = promise;
-                readState.CancellationTokenSource = new CancellationTokenSource(readState.Timeout);
+                state.LatestCommunicationTime = DateTime.Now;
+                state.TaskCompletionSource = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+                state.CancellationTokenSource = new CancellationTokenSource(state.Timeout);
 
-                CancellationTokenSource cancellationTokenSource = readState.CancellationTokenSource;
-                CancellationToken cancellationToken = cancellationTokenSource.Token;
-                byte[] data = null;
+                state.CancellationTokenRegistrations.Add(state.CancellationTokenSource.Token.Register(() => state.TaskCompletionSource.TrySetCanceled()));
+                state.CancellationTokenRegistrations.Add(state.CancellationToken.Register(() => state.TaskCompletionSource.TrySetCanceled()));
 
-                readState.CancellationTokenRegistrations.Add(cancellationToken.Register(() => promise.TrySetCanceled()));
-                readState.CancellationTokenRegistrations.Add(readState.CancellationToken.Register(() => promise.TrySetCanceled()));
+                stream.BeginRead(state.Buffer, default, state.BufferSize, AsyncReadCallBackAsync, state);
 
-                stream.BeginRead(readState.Buffer, default, readState.BufferSize, AsyncReadCallBackAsync, readState);
-
-                data = await promise.Task.ConfigureAwait(false);
-
-                if (data != null && data.Length > 0)
                 {
-                    string requestMsg = Encoding.UTF8.GetString(data);
-                    _logger.LogInformation($"接收:\n\t{requestMsg}\n");
+                    byte[] data = await state.TaskCompletionSource.Task.ConfigureAwait(false);
+                    if (data != null && data.Length > 0)
+                    {
+                        string requestMsg = Encoding.UTF8.GetString(data);
+                        _logger.LogInformation($"接收:\n\t{requestMsg}\n");
 
-                    if (stream.CanWrite)
-                    {
-                        byte[] responseBuffer = Encoding.UTF8.GetBytes($"{requestMsg}; 响应时间:{DateTime.Now}");
-                        await stream.WriteAsync(responseBuffer, readState.CancellationToken);
-                    }
-                    else
-                    {
-                        await Task.Delay(100);
-                        ShutdownClient(readState.TcpClient);
-                        return;
+                        if (stream.CanWrite)
+                        {
+                            byte[] responseBuffer = Encoding.UTF8.GetBytes($"{requestMsg}; 响应时间:{DateTime.Now}");
+                            await stream.WriteAsync(responseBuffer, state.CancellationToken);
+                        }
+                        else
+                        {
+                            await Task.Delay(100);
+                            ShutdownClient(state.TcpClient);
+                            return;
+                        }
                     }
                 }
                 #endregion
@@ -228,6 +209,24 @@ namespace TcpServiceSample
             {
                 _logger.LogError(ex, ex.Message);
             }
+        }
+
+        void LoadData(ReadState state, IAsyncResult ar)
+        {
+            NetworkStream ns = state.TcpClient.GetStream();
+            int numOfBytesRead = ns.EndRead(ar);
+            if (numOfBytesRead > 0)
+            {
+                byte[] buffer = new byte[numOfBytesRead];
+                Array.Copy(state.Buffer, 0, buffer, 0, numOfBytesRead);
+                state.TaskCompletionSource.TrySetResult(buffer);
+            }
+            else
+            {
+                state.TaskCompletionSource.TrySetCanceled();
+            }
+
+            state.Dispose();
         }
 
         bool CheckConnection(TcpClient tcpClient)
