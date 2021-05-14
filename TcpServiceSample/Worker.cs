@@ -99,11 +99,12 @@ namespace TcpServiceSample
                             if (data != null && data.Length > 0)
                             {
                                 latestCommunicationTime = DateTime.Now;
-                                _logger.LogInformation($"接收:\n\t{Encoding.UTF8.GetString(data)}\n");
+                                string requestMsg = Encoding.UTF8.GetString(data);
+                                _logger.LogInformation($"接收:\n\t{requestMsg}\n");
 
                                 if (stream.CanWrite)
                                 {
-                                    byte[] responseBuffer = Encoding.UTF8.GetBytes($"响应时间:{DateTime.Now}");
+                                    byte[] responseBuffer = Encoding.UTF8.GetBytes($"{requestMsg}; 响应时间:{DateTime.Now}");
                                     await stream.WriteAsync(responseBuffer, stoppingToken);
                                 }
                             }

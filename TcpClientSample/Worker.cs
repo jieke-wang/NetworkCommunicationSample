@@ -42,13 +42,20 @@ namespace TcpClientSample
             {
                 try
                 {
-                    if (_tcpClient.Connected == false)
+                    DateTime startTime = DateTime.Now;
+                    if (_tcpClient.Connected == false) // 断线重连
                     {
                         await _tcpClient.ConnectAsync(hostname, port);
                         ns = _tcpClient.GetStream();
                     }
 
                     #region write
+                    if (ns.CanWrite == false)
+                    {
+                        await Task.Delay(100, stoppingToken);
+                        continue;
+                    }
+
                     string msg = $"{Thread.CurrentThread.ManagedThreadId} >> {Guid.NewGuid():n} >> {DateTime.Now}";
                     _logger.LogInformation($"请求:\n\t{msg}\n");
 
@@ -66,7 +73,7 @@ namespace TcpClientSample
 
                     if (ns.CanRead == false)
                     {
-                        await Task.Delay(100);
+                        await Task.Delay(100, stoppingToken);
                         continue;
                     }
 
@@ -84,12 +91,14 @@ namespace TcpClientSample
                     }
                     #endregion
 
-                    await Task.Delay(1000);
+                    _logger.LogInformation($"\n耗时: {DateTime.Now - startTime}\n");
+                    //await Task.Delay(1000, stoppingToken);
+                    await Task.Delay(0);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, ex.Message);
-                    await Task.Delay(5000);
+                    await Task.Delay(5000, stoppingToken);
                 }
             }
         }
