@@ -36,7 +36,8 @@ namespace TcpClientSample
         {
             if (_tcpClient == null) return;
             NetworkStream ns = _tcpClient.GetStream();
-            TimeSpan timeout = new TimeSpan(0, 0, 0, 5, 0);
+            //TimeSpan timeout = new TimeSpan(0, 0, 0, 5, 0);
+            TimeSpan timeout = TimeSpan.FromMinutes(10);
 
             while (!stoppingToken.IsCancellationRequested)
             {
@@ -92,8 +93,9 @@ namespace TcpClientSample
                     #endregion
 
                     _logger.LogInformation($"\n耗时: {DateTime.Now - startTime}\n");
-                    //await Task.Delay(1000, stoppingToken);
+                    //await Task.Delay(5000, stoppingToken);
                     await Task.Delay(0);
+                    //await Task.Delay(TimeSpan.FromMinutes(10));
                 }
                 catch (Exception ex)
                 {

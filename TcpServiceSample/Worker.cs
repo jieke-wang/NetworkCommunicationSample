@@ -88,13 +88,29 @@ namespace TcpServiceSample
                             return;
                         }
 
-                        state.CancellationTokenRegistrations.Add(state.CancellationTokenSource.Token.Register(() => state.TaskCompletionSource.TrySetCanceled()));
-                        state.CancellationTokenRegistrations.Add(state.CancellationToken.Register(() => state.TaskCompletionSource.TrySetCanceled()));
+                        //state.CancellationTokenRegistrations.Add(state.CancellationTokenSource.Token.Register(() => state.TaskCompletionSource.TrySetCanceled()));
+                        //state.CancellationTokenRegistrations.Add(state.CancellationToken.Register(() => state.TaskCompletionSource.TrySetCanceled()));
+                        state.CancellationTokenRegistrations.Add(state.CancellationTokenSource.Token.Register(() => state.TaskCompletionSourceQueue.Peek().TrySetCanceled()));
+                        state.CancellationTokenRegistrations.Add(state.CancellationToken.Register(() => state.TaskCompletionSourceQueue.Peek().TrySetCanceled()));
 
                         stream.BeginRead(state.Buffer, default, state.BufferSize, AsyncReadCallBackAsync, state);
 
                         {
-                            byte[] data = await state.TaskCompletionSource.Task.ConfigureAwait(false);
+                            //byte[] data = await state.TaskCompletionSource.Task.ConfigureAwait(false);
+                            byte[] data = null;
+                            try
+                            {
+                                data = await state.TaskCompletionSourceQueue.Peek().Task.ConfigureAwait(false);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, ex.Message);
+                            }
+                            finally
+                            {
+                                state.TaskCompletionSourceQueue.TryDequeue(out _);
+                            }
+
                             if (data != null && data.Length > 0)
                             {
                                 string requestMsg = Encoding.UTF8.GetString(data);
@@ -114,7 +130,8 @@ namespace TcpServiceSample
                     }
                     finally
                     {
-                        state.Dispose();
+                        //state.Dispose();
+                        //state.TaskCompletionSourceQueue.Dequeue();
                     }
                     #endregion
                 }).Unwrap();
@@ -144,11 +161,11 @@ namespace TcpServiceSample
 
         async void AsyncReadCallBackAsync(IAsyncResult ar)
         {
+            ReadState state = ar.AsyncState as ReadState;
             try
             {
-                ReadState state = ar.AsyncState as ReadState;
                 #region 检查
-                if (state.TcpClient == null || state.TcpClient.Connected == false || state.TaskCompletionSource == null || state.CancellationToken.IsCancellationRequested) return;
+                if (state.TcpClient == null || state.TcpClient.Connected == false /*|| state.TaskCompletionSource == null*/ || state.CancellationToken.IsCancellationRequested) return;
 
                 if (CheckConnection(state.TcpClient) == false) // 检测tcp连接
                 {
@@ -162,7 +179,7 @@ namespace TcpServiceSample
                 #endregion
 
                 #region 读取数据
-                LoadData(state, ar);
+                await LoadDataAsync(state, ar);
                 #endregion
 
                 #region 开启新的异步通信
@@ -175,16 +192,33 @@ namespace TcpServiceSample
                 }
 
                 state.LatestCommunicationTime = DateTime.Now;
-                state.TaskCompletionSource = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+                //state.TaskCompletionSource = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+                state.TaskCompletionSourceQueue.Enqueue(new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously));
                 state.CancellationTokenSource = new CancellationTokenSource(state.Timeout);
 
-                state.CancellationTokenRegistrations.Add(state.CancellationTokenSource.Token.Register(() => state.TaskCompletionSource.TrySetCanceled()));
-                state.CancellationTokenRegistrations.Add(state.CancellationToken.Register(() => state.TaskCompletionSource.TrySetCanceled()));
+                //state.CancellationTokenRegistrations.Add(state.CancellationTokenSource.Token.Register(() => state.TaskCompletionSource.TrySetCanceled()));
+                //state.CancellationTokenRegistrations.Add(state.CancellationToken.Register(() => state.TaskCompletionSource.TrySetCanceled()));
+                state.CancellationTokenRegistrations.Add(state.CancellationTokenSource.Token.Register(() => state.TaskCompletionSourceQueue.Peek().TrySetCanceled()));
+                state.CancellationTokenRegistrations.Add(state.CancellationToken.Register(() => state.TaskCompletionSourceQueue.Peek().TrySetCanceled()));
 
                 stream.BeginRead(state.Buffer, default, state.BufferSize, AsyncReadCallBackAsync, state);
 
                 {
-                    byte[] data = await state.TaskCompletionSource.Task.ConfigureAwait(false);
+                    //byte[] data = await state.TaskCompletionSource.Task.ConfigureAwait(false);
+                    byte[] data = null;
+                    try
+                    {
+                        data = await state.TaskCompletionSourceQueue.Peek().Task.ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, ex.Message);
+                    }
+                    finally
+                    {
+                        state.TaskCompletionSourceQueue.TryDequeue(out _);
+                    }
+
                     if (data != null && data.Length > 0)
                     {
                         string requestMsg = Encoding.UTF8.GetString(data);
@@ -209,24 +243,42 @@ namespace TcpServiceSample
             {
                 _logger.LogError(ex, ex.Message);
             }
+            finally
+            {
+                //state.TaskCompletionSourceQueue.TryDequeue(out _);
+            }
         }
 
-        void LoadData(ReadState state, IAsyncResult ar)
+        async Task LoadDataAsync(ReadState state, IAsyncResult ar)
         {
-            NetworkStream ns = state.TcpClient.GetStream();
-            int numOfBytesRead = ns.EndRead(ar);
-            if (numOfBytesRead > 0)
+            try
             {
-                byte[] buffer = new byte[numOfBytesRead];
-                Array.Copy(state.Buffer, 0, buffer, 0, numOfBytesRead);
-                state.TaskCompletionSource.TrySetResult(buffer);
+                NetworkStream ns = state.TcpClient.GetStream();
+                int numOfBytesRead = ns.EndRead(ar);
+                if (numOfBytesRead > 0)
+                {
+                    byte[] buffer = new byte[numOfBytesRead];
+                    Array.Copy(state.Buffer, 0, buffer, 0, numOfBytesRead);
+                    //state.TaskCompletionSource.TrySetResult(buffer);
+                    state.TaskCompletionSourceQueue.Peek().TrySetResult(buffer);
+                }
+                else
+                {
+                    //state.TaskCompletionSource.TrySetCanceled();
+                    state.TaskCompletionSourceQueue.Peek().TrySetCanceled();
+                }
             }
-            else
+            catch (Exception ex)
             {
-                state.TaskCompletionSource.TrySetCanceled();
+                _logger.LogError(ex, ex.Message);
             }
-
-            state.Dispose();
+            finally
+            {
+                state.Dispose();
+                //state.TaskCompletionSourceQueue.TryDequeue(out _);
+                //await Task.Delay(10);
+                await Task.Delay(1);
+            }
         }
 
         bool CheckConnection(TcpClient tcpClient)
@@ -298,13 +350,14 @@ namespace TcpServiceSample
             {
                 Buffer = new byte[bufferSize];
                 BufferSize = bufferSize;
-                TaskCompletionSource = promise;
+                //TaskCompletionSource = promise;
                 TcpClient = tcpClient;
+                TaskCompletionSourceQueue.Enqueue(promise);
             }
 
             public byte[] Buffer { get; }
             public int BufferSize { get; }
-            public TaskCompletionSource<byte[]> TaskCompletionSource { get; set; }
+            //public TaskCompletionSource<byte[]> TaskCompletionSource { get; set; }
             public TcpClient TcpClient { get; }
 
             public DateTime LatestCommunicationTime { get; set; }
@@ -316,6 +369,8 @@ namespace TcpServiceSample
             public CancellationTokenSource CancellationTokenSource { get; set; }
 
             public List<CancellationTokenRegistration> CancellationTokenRegistrations { get; set; } = new List<CancellationTokenRegistration>(4);
+
+            public Queue<TaskCompletionSource<byte[]>> TaskCompletionSourceQueue { get; set; } = new Queue<TaskCompletionSource<byte[]>>(4);
 
             public void Dispose()
             {
