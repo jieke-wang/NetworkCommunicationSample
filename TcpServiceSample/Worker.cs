@@ -91,14 +91,12 @@ namespace TcpServiceSample
                             return;
                         }
 
+                        readState.CancellationTokenRegistrations.Add(cancellationToken.Register(() => promise.TrySetCanceled()));
+                        readState.CancellationTokenRegistrations.Add(readState.CancellationToken.Register(() => promise.TrySetCanceled()));
+
                         stream.BeginRead(readState.Buffer, default, readState.BufferSize, AsyncReadCallBackAsync, readState);
 
-                        await using (cancellationToken.Register(() => promise.TrySetCanceled()))
-                        await using (readState.CancellationToken.Register(() => promise.TrySetCanceled()))
-                        {
-                            data = await promise.Task.ConfigureAwait(false);
-                        }
-
+                        data = await promise.Task.ConfigureAwait(false);
                         if (data != null && data.Length > 0)
                         {
                             string requestMsg = Encoding.UTF8.GetString(data);
@@ -117,7 +115,7 @@ namespace TcpServiceSample
                     }
                     finally
                     {
-                        readState.CancellationTokenSource?.Dispose();
+                        readState.Dispose();
                     }
                     #endregion
                 }).Unwrap();
@@ -178,10 +176,18 @@ namespace TcpServiceSample
                     state.TaskCompletionSource.TrySetCanceled();
                 }
 
-                state.CancellationTokenSource?.Dispose();
+                state.Dispose();
                 #endregion
 
                 #region 开启新的异步通信
+                NetworkStream stream = state.TcpClient.GetStream();
+                if (stream.CanRead == false)
+                {
+                    await Task.Delay(100);
+                    ShutdownClient(state.TcpClient);
+                    return;
+                }
+
                 var promise = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
                 ReadState readState = state;
                 readState.LatestCommunicationTime = DateTime.Now;
@@ -192,21 +198,12 @@ namespace TcpServiceSample
                 CancellationToken cancellationToken = cancellationTokenSource.Token;
                 byte[] data = null;
 
-                NetworkStream stream = state.TcpClient.GetStream();
-                if (stream.CanRead == false)
-                {
-                    await Task.Delay(100);
-                    ShutdownClient(readState.TcpClient);
-                    return;
-                }
+                readState.CancellationTokenRegistrations.Add(cancellationToken.Register(() => promise.TrySetCanceled()));
+                readState.CancellationTokenRegistrations.Add(readState.CancellationToken.Register(() => promise.TrySetCanceled()));
 
                 stream.BeginRead(readState.Buffer, default, readState.BufferSize, AsyncReadCallBackAsync, readState);
 
-                await using (cancellationToken.Register(() => promise.TrySetCanceled()))
-                await using (readState.CancellationToken.Register(() => promise.TrySetCanceled()))
-                {
-                    data = await promise.Task.ConfigureAwait(false);
-                }
+                data = await promise.Task.ConfigureAwait(false);
 
                 if (data != null && data.Length > 0)
                 {
@@ -290,7 +287,7 @@ namespace TcpServiceSample
             return base.StopAsync(cancellationToken);
         }
 
-        public class ReadState
+        public class ReadState : IDisposable
         {
             const int DefaultBufferSize = 1024;
 
@@ -318,6 +315,18 @@ namespace TcpServiceSample
             public CancellationToken CancellationToken { get; set; }
 
             public CancellationTokenSource CancellationTokenSource { get; set; }
+
+            public List<CancellationTokenRegistration> CancellationTokenRegistrations { get; set; } = new List<CancellationTokenRegistration>(4);
+
+            public void Dispose()
+            {
+                CancellationTokenSource?.Dispose();
+                foreach (var cancellationTokenRegistration in CancellationTokenRegistrations)
+                {
+                    cancellationTokenRegistration.Dispose();
+                }
+                CancellationTokenRegistrations.Clear();
+            }
         }
     }
 }
