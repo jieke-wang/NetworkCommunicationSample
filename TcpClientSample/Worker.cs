@@ -79,7 +79,7 @@ namespace TcpClientSample
                     }
 
                     ReadState readState = new ReadState(promise, _tcpClient);
-                    ns.BeginRead(readState.Buffer, default, readState.BufferSize, AsyncReadCallBack, readState);
+                    ns.BeginRead(readState.Buffer, default, readState.BufferSize, new AsyncCallback(AsyncReadCallBack), readState);
 
                     await using (cancellationToken.Register(() => promise.TrySetCanceled()))
                     {

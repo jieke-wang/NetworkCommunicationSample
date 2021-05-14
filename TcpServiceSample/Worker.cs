@@ -93,7 +93,7 @@ namespace TcpServiceSample
                         state.CancellationTokenRegistrations.Add(state.CancellationTokenSource.Token.Register(() => state.TaskCompletionSourceQueue.Peek().TrySetCanceled()));
                         state.CancellationTokenRegistrations.Add(state.CancellationToken.Register(() => state.TaskCompletionSourceQueue.Peek().TrySetCanceled()));
 
-                        stream.BeginRead(state.Buffer, default, state.BufferSize, AsyncReadCallBackAsync, state);
+                        stream.BeginRead(state.Buffer, default, state.BufferSize, new AsyncCallback(AsyncReadCallBackAsync), state);
 
                         {
                             //byte[] data = await state.TaskCompletionSource.Task.ConfigureAwait(false);
@@ -167,10 +167,10 @@ namespace TcpServiceSample
                 #region 检查
                 if (state.TcpClient == null || state.TcpClient.Connected == false /*|| state.TaskCompletionSource == null*/ || state.CancellationToken.IsCancellationRequested) return;
 
-                if (CheckConnection(state.TcpClient) == false) // 检测tcp连接
-                {
-                    return;
-                }
+                //if (CheckConnection(state.TcpClient) == false) // 检测tcp连接
+                //{
+                //    return;
+                //}
                 if (CheckTimeout(state.TcpClient, state.LatestCommunicationTime, state.Timeout) == false) // 检测超时
                 {
                     ShutdownClient(state.TcpClient);
@@ -201,7 +201,7 @@ namespace TcpServiceSample
                 state.CancellationTokenRegistrations.Add(state.CancellationTokenSource.Token.Register(() => state.TaskCompletionSourceQueue.Peek().TrySetCanceled()));
                 state.CancellationTokenRegistrations.Add(state.CancellationToken.Register(() => state.TaskCompletionSourceQueue.Peek().TrySetCanceled()));
 
-                stream.BeginRead(state.Buffer, default, state.BufferSize, AsyncReadCallBackAsync, state);
+                stream.BeginRead(state.Buffer, default, state.BufferSize, new AsyncCallback(AsyncReadCallBackAsync), state);
 
                 {
                     //byte[] data = await state.TaskCompletionSource.Task.ConfigureAwait(false);
