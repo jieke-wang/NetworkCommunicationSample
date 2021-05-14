@@ -54,7 +54,7 @@ namespace TcpServiceSample
 
         private async Task AcceptTcpClientAsync(CancellationToken stoppingToken)
         {
-            using TcpClient tcpClient = await _tcpListener.AcceptTcpClientAsync();
+            TcpClient tcpClient = await _tcpListener.AcceptTcpClientAsync();
             _logger.LogInformation($"{tcpClient.Client.RemoteEndPoint as IPEndPoint} 接入");
 
             tcpClient.ReceiveTimeout = 10;
@@ -110,6 +110,19 @@ namespace TcpServiceSample
                     }
                     #endregion
                 }).Unwrap();
+
+                await Task.Factory.StartNew(async () =>
+                {
+                    while (stoppingToken.IsCancellationRequested == false)
+                    {
+                        if (CheckConnection(tcpClient) == false) // 检测tcp连接
+                        {
+                            ShutdownClient(tcpClient);
+                            return;
+                        }
+                        await Task.Delay(TimeSpan.FromSeconds(30));
+                    }
+                }).Unwrap();
             }
             catch (Exception ex)
             {
@@ -155,7 +168,9 @@ namespace TcpServiceSample
 
             #region 开启新的异步通信
             var promise = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
-            ReadState readState = new ReadState(promise, state.TcpClient) { LatestCommunicationTime = DateTime.Now, CancellationToken = state.CancellationToken };
+            ReadState readState = state;
+            readState.LatestCommunicationTime = DateTime.Now;
+            readState.TaskCompletionSource = promise;
 
             using CancellationTokenSource cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(state.CancellationToken);
             cancellationTokenSource.CancelAfter(readState.Timeout);
@@ -186,6 +201,12 @@ namespace TcpServiceSample
                 {
                     byte[] responseBuffer = Encoding.UTF8.GetBytes($"{requestMsg}; 响应时间:{DateTime.Now}");
                     await stream.WriteAsync(responseBuffer, readState.CancellationToken);
+                }
+                else
+                {
+                    await Task.Delay(100);
+                    ShutdownClient(readState.TcpClient);
+                    return;
                 }
             }
             #endregion
@@ -266,7 +287,7 @@ namespace TcpServiceSample
 
             public byte[] Buffer { get; }
             public int BufferSize { get; }
-            public TaskCompletionSource<byte[]> TaskCompletionSource { get; }
+            public TaskCompletionSource<byte[]> TaskCompletionSource { get; set; }
             public TcpClient TcpClient { get; }
 
             public DateTime LatestCommunicationTime { get; set; }
