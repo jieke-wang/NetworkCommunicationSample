@@ -21,7 +21,8 @@ namespace TcpServiceSample
                 {
                     //services.AddHostedService<Worker>();
                     //services.AddHostedService<Worker2>();
-                    services.AddHostedService<Worker3>();
+                    //services.AddHostedService<Worker3>();
+                    services.AddHostedService<Worker4>();
                 });
     }
 }
