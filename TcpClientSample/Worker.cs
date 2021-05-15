@@ -48,6 +48,8 @@ namespace TcpClientSample
                     DateTime startTime = DateTime.Now;
                     if (_tcpClient.Connected == false) // 断线重连
                     {
+                        _tcpClient.Dispose();
+                        _tcpClient = new TcpClient();
                         await _tcpClient.ConnectAsync(hostname, port);
                         ns = _tcpClient.GetStream();
                     }
@@ -95,9 +97,13 @@ namespace TcpClientSample
                     #endregion
 
                     _logger.LogInformation($"\n耗时: {DateTime.Now - startTime}\n");
-                    await Task.Delay(1000, stoppingToken);
+                    // await Task.Delay(1000, stoppingToken);
                     // await Task.Delay(0, stoppingToken);
                     //await Task.Delay(TimeSpan.FromMinutes(10));
+
+                    Console.Write("任意键继续");
+                    Console.Write(Console.ReadKey());
+                    Console.WriteLine();
                 }
                 catch (Exception ex)
                 {
