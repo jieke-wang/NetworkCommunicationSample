@@ -71,7 +71,7 @@ namespace TcpServiceSample
             {
                 await Task.Factory.StartNew(async () =>
                 {
-                    if (CheckConnection(tcpClient) == false) return; // 检测tcp连接
+                    // if (CheckConnection(tcpClient) == false) return; // 检测tcp连接
 
                     #region 首次异步通信
 
@@ -108,7 +108,7 @@ namespace TcpServiceSample
                             }
                             finally
                             {
-                                state.TaskCompletionSourceQueue.TryDequeue(out _);
+                                // state.TaskCompletionSourceQueue.TryDequeue(out _);
                             }
 
                             if (data != null && data.Length > 0)
@@ -145,7 +145,7 @@ namespace TcpServiceSample
                             ShutdownClient(tcpClient);
                             return;
                         }
-                        await Task.Delay(TimeSpan.FromSeconds(30));
+                        await Task.Delay(TimeSpan.FromSeconds(10));
                     }
                 }).Unwrap();
             }
@@ -183,6 +183,8 @@ namespace TcpServiceSample
                 #endregion
 
                 #region 开启新的异步通信
+                if (state.TcpClient.Connected == false) return;
+
                 NetworkStream stream = state.TcpClient.GetStream();
                 if (stream.CanRead == false)
                 {
@@ -212,11 +214,12 @@ namespace TcpServiceSample
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, ex.Message);
+                        // _logger.LogError(ex, ex.Message);
+                        state.TaskCompletionSourceQueue.TryDequeue(out _);
                     }
                     finally
                     {
-                        state.TaskCompletionSourceQueue.TryDequeue(out _);
+                        // state.TaskCompletionSourceQueue.TryDequeue(out _);
                     }
 
                     if (data != null && data.Length > 0)
@@ -277,7 +280,9 @@ namespace TcpServiceSample
                 state.Dispose();
                 //state.TaskCompletionSourceQueue.TryDequeue(out _);
                 //await Task.Delay(10);
-                await Task.Delay(1);
+                // await Task.Delay(1);
+                await Task.Delay(0);
+                state.TaskCompletionSourceQueue.TryDequeue(out _);
             }
         }
 
