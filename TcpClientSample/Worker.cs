@@ -81,7 +81,7 @@ namespace TcpClientSample
                     ReadState readState = new ReadState(promise, _tcpClient);
                     ns.BeginRead(readState.Buffer, default, readState.BufferSize, new AsyncCallback(AsyncReadCallBack), readState);
 
-                    await using (cancellationToken.Register(() => promise.TrySetCanceled()))
+                    await using (cancellationToken.Register(() => promise.TrySetResult(default)))
                     {
                         data = await promise.Task.ConfigureAwait(false);
                     }
@@ -120,7 +120,7 @@ namespace TcpClientSample
             }
             else
             {
-                state.TaskCompletionSource.TrySetCanceled();
+                state.TaskCompletionSource.TrySetResult(default);
             }
         }
 
