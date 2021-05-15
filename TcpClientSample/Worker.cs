@@ -19,6 +19,8 @@ namespace TcpClientSample
         const string hostname = "127.0.0.1";
         const int port = 8888;
 
+        private static byte[] DefaultResult = new byte[0];
+
         public Worker(ILogger<Worker> logger)
         {
             _logger = logger;
@@ -120,7 +122,7 @@ namespace TcpClientSample
             }
             else
             {
-                state.TaskCompletionSource.TrySetResult(default);
+                state.TaskCompletionSource.TrySetResult(DefaultResult);
             }
         }
 

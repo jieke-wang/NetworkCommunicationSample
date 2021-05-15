@@ -69,6 +69,7 @@ namespace TcpServiceSample
             _logger.LogInformation($"客户端数量: {++ClientCounter}");
 
             ReadState state = new(new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously), tcpClient) { LatestCommunicationTime = DateTime.Now, CancellationToken = stoppingToken };
+
             try
             {
                 await Task.Factory.StartNew(async () =>
@@ -170,6 +171,10 @@ namespace TcpServiceSample
                 _logger.LogInformation($"客户端数量: {--ClientCounter}");
                 state.Dispose();
                 state.TaskCompletionSourceQueue.Clear();
+
+                tcpClient.Client.Shutdown(SocketShutdown.Both);
+                tcpClient.Dispose();
+                _logger.LogInformation($"{tcpClient.Client.RemoteEndPoint as IPEndPoint} 断开");
             }
         }
 
