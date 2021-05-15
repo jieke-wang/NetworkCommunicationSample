@@ -208,3 +208,15 @@ namespace TcpServiceSample
         }
     }
 }
+
+// C# 高性能 Socket 服务器 SocketAsyncEventArgs 的实现 (IOCP)
+// https://blog.csdn.net/zhujunxxxxx/article/details/43573879/
+
+// C# SocketAsyncEventArgs 高性能Socket代码
+// https://www.php.cn/csharp-article-345509.html
+
+// https://github.com/search?l=C%23&q=IOCP&type=Repositories
+// https://github.com/danielpalme/IocPerformance
+// https://github.com/fengma312/socket.core
+// https://github.com/yswenli/GFF
+// https://github.com/miniboom360/IOCP_UDP-TCP

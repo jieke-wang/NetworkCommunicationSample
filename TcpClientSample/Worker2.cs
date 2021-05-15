@@ -99,8 +99,8 @@ namespace TcpClientSample
                             #endregion
 
                             _logger.LogInformation($"\n耗时: {DateTime.Now - startTime}\n");
-                            await Task.Delay(1000, stoppingToken);
-                            //await Task.Delay(0, stoppingToken);
+                            //await Task.Delay(1000, stoppingToken);
+                            await Task.Delay(0, stoppingToken);
                             //await Task.Delay(TimeSpan.FromMinutes(10));
                         }
                         catch (Exception ex)
@@ -121,7 +121,7 @@ namespace TcpClientSample
                     _tcpClient?.Dispose();
                     _logger.LogInformation("已断开连接");
                 }
-                await Task.Delay(2000, stoppingToken);
+                //await Task.Delay(2000, stoppingToken);
             }
         }
 
