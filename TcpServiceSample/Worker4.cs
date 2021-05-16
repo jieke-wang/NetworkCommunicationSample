@@ -53,11 +53,14 @@ namespace TcpServiceSample
                         TcpClient tcpClient = await _tcpListener.AcceptTcpClientAsync();
                         Task task = AcceptTcpClientAsync(tcpClient, stoppingToken);
 
-                        _clientPoolItems.Add(new ClientPoolItem
+                        lock(this)
                         {
-                            TcpClient = tcpClient,
-                            Worker = task
-                        });
+                            _clientPoolItems.Add(new ClientPoolItem
+                            {
+                                TcpClient = tcpClient,
+                                Worker = task
+                            });
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -86,7 +89,10 @@ namespace TcpServiceSample
                             if (checkItem.TcpClient.Connected == false || checkItem.TcpClient.Client == null)
                             {
                                 checkItem.TcpClient.Dispose();
-                                _clientPoolItems.Remove(checkItem);
+                                lock(this)
+                                {
+                                    _clientPoolItems.Remove(checkItem);
+                                }
                                 continue;
                             }
 
@@ -106,7 +112,10 @@ namespace TcpServiceSample
                             {
                                 checkItem.TcpClient.Close();
                                 checkItem.TcpClient.Dispose();
-                                _clientPoolItems.Remove(checkItem);
+                                lock (this)
+                                {
+                                    _clientPoolItems.Remove(checkItem);
+                                }
                             }
                         }
                         catch (Exception ex)
