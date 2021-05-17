@@ -81,58 +81,62 @@ namespace TcpServiceSample
             {
                 StartAccept(null);
 
-                await Task.Factory.StartNew(async () =>
-                {
-                    while (!stoppingToken.IsCancellationRequested)
-                    {
-                        var checkItems = m_pool.GetItems();
+                #region
+                //await Task.Factory.StartNew(async () =>
+                //{
+                //    while (!stoppingToken.IsCancellationRequested)
+                //    {
+                //        var checkItems = m_pool.GetItems();
 
-                        Dictionary<string, TcpState> tcpConnectionStates = new Dictionary<string, TcpState>(StringComparer.OrdinalIgnoreCase);
-                        foreach (var tcpConnection in IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpConnections())
-                        {
-                            tcpConnectionStates[$"{tcpConnection.RemoteEndPoint}:{tcpConnection.LocalEndPoint}"] = tcpConnection.State;
-                        }
+                //        Dictionary<string, TcpState> tcpConnectionStates = new Dictionary<string, TcpState>(StringComparer.OrdinalIgnoreCase);
+                //        foreach (var tcpConnection in IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpConnections())
+                //        {
+                //            tcpConnectionStates[$"{tcpConnection.RemoteEndPoint}:{tcpConnection.LocalEndPoint}"] = tcpConnection.State;
+                //        }
 
-                        for (int i = 0; i < checkItems.Length; i++)
-                        {
-                            try
-                            {
-                                var checkItem = checkItems[i];
-                                AsyncUserToken token = checkItem.UserToken as AsyncUserToken;
-                                if (token.Socket == null) continue;
+                //        for (int i = 0; i < checkItems.Length; i++)
+                //        {
+                //            try
+                //            {
+                //                var checkItem = checkItems[i];
+                //                AsyncUserToken token = checkItem.UserToken as AsyncUserToken;
+                //                if (token.Socket == null) continue;
 
-                                IPEndPoint clientAddress = token.Socket.RemoteEndPoint as IPEndPoint;
-                                EndPoint localEndPoint = token.Socket.LocalEndPoint;
+                //                IPEndPoint clientAddress = token.Socket.RemoteEndPoint as IPEndPoint;
+                //                EndPoint localEndPoint = token.Socket.LocalEndPoint;
 
-                                if (tcpConnectionStates.TryGetValue($"{clientAddress}:{localEndPoint}", out TcpState tcpState) == false)
-                                {
-                                    tcpState = TcpState.Unknown;
-                                }
+                //                if (tcpConnectionStates.TryGetValue($"{clientAddress}:{localEndPoint}", out TcpState tcpState) == false)
+                //                {
+                //                    tcpState = TcpState.Unknown;
+                //                }
 
-                                if (tcpState == TcpState.Unknown
-                                    || tcpState == TcpState.Closed
-                                    || tcpState == TcpState.CloseWait
-                                    || tcpState == TcpState.Closing
-                                    || tcpState == TcpState.FinWait1
-                                    || tcpState == TcpState.FinWait2
-                                    || tcpState == TcpState.LastAck
-                                    || tcpState == TcpState.TimeWait)
-                                {
-                                    CloseClientSocket(checkItem);
-                                    _logger.LogInformation($"{localEndPoint} <=> {clientAddress} 断开连接");
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, ex.Message);
-                            }
-                        }
+                //                if (tcpState == TcpState.Unknown
+                //                    || tcpState == TcpState.Closed
+                //                    || tcpState == TcpState.CloseWait
+                //                    || tcpState == TcpState.Closing
+                //                    || tcpState == TcpState.FinWait1
+                //                    || tcpState == TcpState.FinWait2
+                //                    || tcpState == TcpState.LastAck
+                //                    || tcpState == TcpState.TimeWait)
+                //                {
+                //                    CloseClientSocket(checkItem);
+                //                    _logger.LogInformation($"{localEndPoint} <=> {clientAddress} 断开连接");
+                //                }
+                //            }
+                //            catch (Exception ex)
+                //            {
+                //                _logger.LogError(ex, ex.Message);
+                //            }
+                //        }
 
-                        tcpConnectionStates.Clear();
+                //        tcpConnectionStates.Clear();
 
-                        await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
-                    }
-                }, stoppingToken, TaskCreationOptions.LongRunning, TaskScheduler.Current).Unwrap();
+                //        await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+                //    }
+                //}, stoppingToken, TaskCreationOptions.LongRunning, TaskScheduler.Current).Unwrap(); 
+                #endregion
+
+                await Task.Delay(Timeout.Infinite, stoppingToken);
             }
             catch (Exception ex)
             {
@@ -174,7 +178,7 @@ namespace TcpServiceSample
                 userToken.Socket = acceptEventArg.AcceptSocket;
                 userToken.ConnectTime = DateTime.Now;
                 userToken.Remote = acceptEventArg.AcceptSocket.RemoteEndPoint;
-                userToken.IPAddress = ((IPEndPoint)(acceptEventArg.AcceptSocket.RemoteEndPoint)).Address;
+                userToken.Local = ((IPEndPoint)(acceptEventArg.AcceptSocket.LocalEndPoint)).Address;
 
                 lock (m_clients) { m_clients.Add(userToken); }
                 
@@ -321,6 +325,8 @@ namespace TcpServiceSample
             m_maxNumberAcceptedClients.Release();
             args.UserToken = new AsyncUserToken();
             m_pool.Push(args);
+
+            _logger.LogInformation($"{token.Local} <=> {token.Remote} 断开连接");
         }
 
         private void ReceiveClientData(AsyncUserToken token, byte[] data)

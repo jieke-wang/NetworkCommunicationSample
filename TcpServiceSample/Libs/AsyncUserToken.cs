@@ -11,12 +11,12 @@ namespace TcpServiceSample.Libs
     public class AsyncUserToken
     {
         /// <summary>  
-        /// 客户端IP地址  
+        /// 客户端服务端地址  
         /// </summary>  
-        public IPAddress IPAddress { get; set; }
+        public IPAddress Local { get; set; }
 
         /// <summary>  
-        /// 远程地址  
+        /// 客户端远程地址
         /// </summary>  
         public EndPoint Remote { get; set; }
 
