@@ -83,7 +83,7 @@ namespace TcpClientSample
                             #endregion
 
                             #region read
-                            CancellationTokenSource cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                            using CancellationTokenSource cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
                             cancellationTokenSource.CancelAfter(TimeSpan.FromSeconds(3));
 
                             using (cancellationTokenSource.Token.Register(() => _waitLock.Set()))

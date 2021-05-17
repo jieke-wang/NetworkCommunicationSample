@@ -189,7 +189,7 @@ namespace TcpServiceSample
                 userToken.Local = ((IPEndPoint)(acceptEventArg.AcceptSocket.LocalEndPoint)).Address;
 
                 lock (m_clients) { m_clients.Add(userToken); }
-                
+
                 if (!acceptEventArg.AcceptSocket.ReceiveAsync(readEventArgs))
                 {
                     ProcessReceive(readEventArgs);
@@ -352,7 +352,11 @@ namespace TcpServiceSample
             {
                 try
                 {
-                    listenSocket.Shutdown(SocketShutdown.Both);
+                    if (token.Socket == null) continue;
+
+                    if (token.Socket.Connected)
+                        token.Socket.Shutdown(SocketShutdown.Both);
+                    token.Socket.Dispose();
                 }
                 catch (Exception ex)
                 {

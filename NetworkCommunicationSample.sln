@@ -3,11 +3,17 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30907.101
 MinimumVisualStudioVersion = 15.0.26124.0
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TcpServiceSample", "TcpServiceSample\TcpServiceSample.csproj", "{6A547FE0-E627-453E-ABB2-FB03A9EF7026}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TcpServiceSample", "TcpServiceSample\TcpServiceSample.csproj", "{6A547FE0-E627-453E-ABB2-FB03A9EF7026}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TcpClientSample", "TcpClientSample\TcpClientSample.csproj", "{23481C82-D336-4D11-8972-6C763B5811E6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TcpClientSample", "TcpClientSample\TcpClientSample.csproj", "{23481C82-D336-4D11-8972-6C763B5811E6}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "TCP", "TCP", "{8CBF378B-1AA0-4A21-B00F-B507B296E419}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "UDP", "UDP", "{CFA3C269-BD62-4244-8AFD-56C64C9B0710}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UdpServiceSample", "UdpServiceSample\UdpServiceSample.csproj", "{AF223579-1AD6-4212-96D8-56C3AC33E480}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UdpClientSample", "UdpClientSample\UdpClientSample.csproj", "{CA8F5C98-CAA1-457F-B6E3-7C789A99BD53}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -43,6 +49,30 @@ Global
 		{23481C82-D336-4D11-8972-6C763B5811E6}.Release|x64.Build.0 = Release|Any CPU
 		{23481C82-D336-4D11-8972-6C763B5811E6}.Release|x86.ActiveCfg = Release|Any CPU
 		{23481C82-D336-4D11-8972-6C763B5811E6}.Release|x86.Build.0 = Release|Any CPU
+		{AF223579-1AD6-4212-96D8-56C3AC33E480}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AF223579-1AD6-4212-96D8-56C3AC33E480}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AF223579-1AD6-4212-96D8-56C3AC33E480}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{AF223579-1AD6-4212-96D8-56C3AC33E480}.Debug|x64.Build.0 = Debug|Any CPU
+		{AF223579-1AD6-4212-96D8-56C3AC33E480}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{AF223579-1AD6-4212-96D8-56C3AC33E480}.Debug|x86.Build.0 = Debug|Any CPU
+		{AF223579-1AD6-4212-96D8-56C3AC33E480}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AF223579-1AD6-4212-96D8-56C3AC33E480}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AF223579-1AD6-4212-96D8-56C3AC33E480}.Release|x64.ActiveCfg = Release|Any CPU
+		{AF223579-1AD6-4212-96D8-56C3AC33E480}.Release|x64.Build.0 = Release|Any CPU
+		{AF223579-1AD6-4212-96D8-56C3AC33E480}.Release|x86.ActiveCfg = Release|Any CPU
+		{AF223579-1AD6-4212-96D8-56C3AC33E480}.Release|x86.Build.0 = Release|Any CPU
+		{CA8F5C98-CAA1-457F-B6E3-7C789A99BD53}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CA8F5C98-CAA1-457F-B6E3-7C789A99BD53}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CA8F5C98-CAA1-457F-B6E3-7C789A99BD53}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{CA8F5C98-CAA1-457F-B6E3-7C789A99BD53}.Debug|x64.Build.0 = Debug|Any CPU
+		{CA8F5C98-CAA1-457F-B6E3-7C789A99BD53}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CA8F5C98-CAA1-457F-B6E3-7C789A99BD53}.Debug|x86.Build.0 = Debug|Any CPU
+		{CA8F5C98-CAA1-457F-B6E3-7C789A99BD53}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CA8F5C98-CAA1-457F-B6E3-7C789A99BD53}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CA8F5C98-CAA1-457F-B6E3-7C789A99BD53}.Release|x64.ActiveCfg = Release|Any CPU
+		{CA8F5C98-CAA1-457F-B6E3-7C789A99BD53}.Release|x64.Build.0 = Release|Any CPU
+		{CA8F5C98-CAA1-457F-B6E3-7C789A99BD53}.Release|x86.ActiveCfg = Release|Any CPU
+		{CA8F5C98-CAA1-457F-B6E3-7C789A99BD53}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -50,6 +80,8 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{6A547FE0-E627-453E-ABB2-FB03A9EF7026} = {8CBF378B-1AA0-4A21-B00F-B507B296E419}
 		{23481C82-D336-4D11-8972-6C763B5811E6} = {8CBF378B-1AA0-4A21-B00F-B507B296E419}
+		{AF223579-1AD6-4212-96D8-56C3AC33E480} = {CFA3C269-BD62-4244-8AFD-56C64C9B0710}
+		{CA8F5C98-CAA1-457F-B6E3-7C789A99BD53} = {CFA3C269-BD62-4244-8AFD-56C64C9B0710}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {605C4D57-EAD3-4086-8B5A-CE61096FA85B}
