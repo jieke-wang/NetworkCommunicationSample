@@ -136,7 +136,13 @@ namespace TcpServiceSample
                 //}, stoppingToken, TaskCreationOptions.LongRunning, TaskScheduler.Current).Unwrap(); 
                 #endregion
 
-                await Task.Delay(Timeout.Infinite, stoppingToken);
+                try
+                {
+                    await Task.Delay(Timeout.Infinite, stoppingToken);
+                }
+                catch (TaskCanceledException)
+                {
+                }
             }
             catch (Exception ex)
             {
@@ -167,6 +173,8 @@ namespace TcpServiceSample
         {
             try
             {
+                if (acceptEventArg.AcceptSocket == null) return;
+
                 Interlocked.Increment(ref m_clientCount);
 
                 IPEndPoint clientAddress = acceptEventArg.AcceptSocket.RemoteEndPoint as IPEndPoint;
@@ -285,11 +293,11 @@ namespace TcpServiceSample
                     byte[] data = new byte[args.BytesTransferred];
                     Array.Copy(args.Buffer, args.Offset, data, 0, args.BytesTransferred);
 
-                    lock (token.Buffer)
-                    {
-                        token.Buffer.AddRange(data);
-                    }
-                    
+                    //lock (token.Buffer)
+                    //{
+                    //    token.Buffer.AddRange(data);
+                    //}
+
                     ReceiveClientData(token, data);
 
                     if (!token.Socket.ReceiveAsync(args))

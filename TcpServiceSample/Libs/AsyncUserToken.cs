@@ -32,14 +32,14 @@ namespace TcpServiceSample.Libs
 
         //public bool Stop { get; set; }
  
-        /// <summary>  
-        /// 数据缓存区  
-        /// </summary>  
-        public List<byte> Buffer { get; set; }
+        ///// <summary>  
+        ///// 数据缓存区  
+        ///// </summary>  
+        //public List<byte> Buffer { get; set; }
 
         public AsyncUserToken()
         {
-            this.Buffer = new List<byte>();
+            //this.Buffer = new List<byte>();
         }
     }
 }

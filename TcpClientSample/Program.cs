@@ -20,7 +20,8 @@ namespace TcpClientSample
                 .ConfigureServices((hostContext, services) =>
                 {
                     //services.AddHostedService<Worker>();
-                    services.AddHostedService<Worker2>();
+                    //services.AddHostedService<Worker2>();
+                    services.AddHostedService<Worker3>();
                 });
     }
 }
